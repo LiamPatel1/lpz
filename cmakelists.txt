@@ -1,0 +1,48 @@
+cmake_minimum_required (VERSION 3.20)
+
+set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+set(VCPKG_TARGET_TRIPLET "x64-windows")
+
+project ("lpz")
+
+find_package(GTest CONFIG REQUIRED)
+
+if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT ipo_supported)
+    if(ipo_supported)
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+    endif()
+endif()
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(LPZ_SOURCES 
+    "src/huffman.cpp" "src/huffman.h"
+ )
+add_library(lpz STATIC ${LPZ_SOURCES})
+
+target_include_directories(lpz PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+enable_testing()
+
+add_executable( lpztest
+  "tests/test-huffman.cpp"
+)
+target_link_libraries( lpztest
+  lpz
+  GTest::gtest_main
+)
+
+target_include_directories(lpztest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+include(GoogleTest)
+gtest_discover_tests(lpztest)
+
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/tests/sample DESTINATION ${CMAKE_BINARY_DIR}/tests)
+
+if(MSVC)
+    add_compile_options(/fsanitize=address)
+    add_link_options(/fsanitize=address)
+endif()
