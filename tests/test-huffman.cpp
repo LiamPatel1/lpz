@@ -26,9 +26,12 @@ TEST(HuffmanTest, BasicTest) {
     auto input = readFile("tests/sample/enwik7");
 
     auto compressed = lpz::huffman::compress(input);
-    auto decompressed = lpz::huffman::decompress(compressed);
+    if (!compressed) throw std::runtime_error("Compression failed: " + compressed.error().m);
+    auto decompressed = lpz::huffman::decompress(*compressed);
+    if (!decompressed) throw std::runtime_error("Decompression failed: " + decompressed.error().m);
 
-    EXPECT_EQ(input, decompressed);
+
+    EXPECT_EQ(input, *decompressed);
         
 }
 TEST(HuffmanTest, ProfileTest) {
@@ -37,7 +40,7 @@ TEST(HuffmanTest, ProfileTest) {
 
     auto input = readFile("tests/sample/enwik8");
 
-    constexpr int runs = 5;
+    constexpr int runs = 50;
     std::chrono::nanoseconds comp_total{ 0 };
     std::chrono::nanoseconds decomp_total{ 0 };
 
@@ -46,9 +49,14 @@ TEST(HuffmanTest, ProfileTest) {
 
     for (int i = 0; i < runs; ++i) {
         auto start = clock::now();
-        compressed = lpz::huffman::compress(input);
+        auto compressed_res = lpz::huffman::compress(input);
+        if (!compressed_res) throw std::runtime_error("Compression failed: " + compressed_res.error().m);
+        compressed = *compressed_res;
+
         auto mid = clock::now();
-        decompressed = lpz::huffman::decompress(compressed);
+        auto decompressed_res = lpz::huffman::decompress(compressed);
+        if (!decompressed_res) throw std::runtime_error("Decompression failed: " + decompressed_res.error().m);
+        decompressed = *decompressed_res;
         auto end = clock::now();
 
         comp_total += mid - start;
