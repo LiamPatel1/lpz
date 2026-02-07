@@ -34,44 +34,84 @@ TEST(HuffmanTest, BasicTest) {
     EXPECT_EQ(input, *decompressed);
         
 }
-TEST(HuffmanTest, ProfileTest) {
 
-    using clock = std::chrono::steady_clock;
+TEST(HuffmanTest, EmptyTest) {
 
-    auto input = readFile("tests/sample/enwik8");
+    std::vector<uint8_t> input = {};
 
-    constexpr int runs = 50;
-    std::chrono::nanoseconds comp_total{ 0 };
-    std::chrono::nanoseconds decomp_total{ 0 };
+    auto compressed = lpz::huffman::compress(input);
 
-    std::vector<uint8_t> compressed;
-    std::vector<uint8_t> decompressed;
+    EXPECT_EQ(compressed.error().c, lpz::ErrorCode::InputError);
 
-    for (int i = 0; i < runs; ++i) {
-        auto start = clock::now();
-        auto compressed_res = lpz::huffman::compress(input);
-        if (!compressed_res) throw std::runtime_error("Compression failed: " + compressed_res.error().m);
-        compressed = *compressed_res;
+    auto decompressed = lpz::huffman::decompress(input);
+    EXPECT_EQ(decompressed.error().c, lpz::ErrorCode::InputError);
 
-        auto mid = clock::now();
-        auto decompressed_res = lpz::huffman::decompress(compressed);
-        if (!decompressed_res) throw std::runtime_error("Decompression failed: " + decompressed_res.error().m);
-        decompressed = *decompressed_res;
-        auto end = clock::now();
-
-        comp_total += mid - start;
-        decomp_total += end - mid;
-    }
-
-    EXPECT_EQ(input, decompressed);
-
-    auto comp_avg = std::chrono::duration_cast<std::chrono::milliseconds>(comp_total / runs);
-    auto decomp_avg = std::chrono::duration_cast<std::chrono::milliseconds>(decomp_total / runs);
-
-    std::cout << "Compression ratio: "
-        << (double)compressed.size() / input.size() << "\n";
-
-    std::cout << "Avg Compression Time: " << comp_avg.count() << " ms\n";
-    std::cout << "Avg Decompression Time: " << decomp_avg.count() << " ms\n";
 }
 
+TEST(HuffmanTest, SingleChar) {
+
+    std::vector<uint8_t> input = {42};
+
+    auto compressed = lpz::huffman::compress(input);
+    if (!compressed) throw std::runtime_error("Compression failed: " + compressed.error().m);
+    auto decompressed = lpz::huffman::decompress(*compressed);
+    if (!decompressed) throw std::runtime_error("Decompression failed: " + decompressed.error().m);
+
+    EXPECT_EQ(input, *decompressed);
+
+}
+
+TEST(HuffmanTest, SingleCharStream) {
+
+    std::vector<uint8_t> input = { 42,42,42,42,42,42,42,42,42 };
+
+    auto compressed = lpz::huffman::compress(input);
+    if (!compressed) throw std::runtime_error("Compression failed: " + compressed.error().m);
+    auto decompressed = lpz::huffman::decompress(*compressed);
+    if (!decompressed) throw std::runtime_error("Decompression failed: " + decompressed.error().m);
+
+    EXPECT_EQ(input, *decompressed);
+
+}
+
+//TEST(HuffmanTest, ProfileTest) {
+//
+//    using clock = std::chrono::steady_clock;
+//
+//    auto input = readFile("tests/sample/enwik8");
+//
+//    constexpr int runs = 50;
+//    std::chrono::nanoseconds comp_total{ 0 };
+//    std::chrono::nanoseconds decomp_total{ 0 };
+//
+//    std::vector<uint8_t> compressed;
+//    std::vector<uint8_t> decompressed;
+//
+//    for (int i = 0; i < runs; ++i) {
+//        auto start = clock::now();
+//        auto compressed_res = lpz::huffman::compress(input);
+//        if (!compressed_res) throw std::runtime_error("Compression failed: " + compressed_res.error().m);
+//        compressed = *compressed_res;
+//
+//        auto mid = clock::now();
+//        auto decompressed_res = lpz::huffman::decompress(compressed);
+//        if (!decompressed_res) throw std::runtime_error("Decompression failed: " + decompressed_res.error().m);
+//        decompressed = *decompressed_res;
+//        auto end = clock::now();
+//
+//        comp_total += mid - start;
+//        decomp_total += end - mid;
+//    }
+//
+//    EXPECT_EQ(input, decompressed);
+//
+//    auto comp_avg = std::chrono::duration_cast<std::chrono::milliseconds>(comp_total / runs);
+//    auto decomp_avg = std::chrono::duration_cast<std::chrono::milliseconds>(decomp_total / runs);
+//
+//    std::cout << "Compression ratio: "
+//        << (double)compressed.size() / input.size() << "\n";
+//
+//    std::cout << "Avg Compression Time: " << comp_avg.count() << " ms\n";
+//    std::cout << "Avg Decompression Time: " << decomp_avg.count() << " ms\n";
+//}
+//

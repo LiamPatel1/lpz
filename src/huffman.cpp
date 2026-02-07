@@ -81,6 +81,12 @@ namespace {
 			}
 		}
 
+		if (leaves.size() == 1) {
+			std::array<uint8_t, 256> lengths = {};
+			lengths[leaves[0].original_index] = 1; 
+			return lengths;
+		}
+
 		auto sort_packages = [](const Package& a, const Package& b)
 			{
 				if (a.weight != b.weight)
@@ -143,6 +149,8 @@ namespace lpz::huffman {
 
 	double compute_ratio(std::span<const uint8_t> data) {
 
+		if (data.empty()) return 0;
+
 		std::array<uint32_t, 256> histogram = create_histogram(data);
 
 		auto lengths = get_code_lengths(histogram);
@@ -153,7 +161,7 @@ namespace lpz::huffman {
 			bits += lengths[i] * histogram[i];
 		}
 
-		bits += 8*(256+4); // code lengths + output stream size
+		bits += 8 * (256+4); // code lengths + output stream size
 		bits += 7;
 
 		return (double)(bits/8) / data.size();
@@ -162,6 +170,11 @@ namespace lpz::huffman {
 
 	std::expected<std::vector<uint8_t>, Error>
 	compress(std::span<const uint8_t> data) {
+		
+		if (data.size() >= std::numeric_limits<uint32_t>::max()) 
+			return std::unexpected(Error{ ErrorCode::InputError, "Huffman compress: Input too large" });
+		if (data.empty()) 
+			return std::unexpected(Error{ ErrorCode::InputError, "Huffman compress: Empty Input" });
 
 		std::array<uint32_t,256> histogram = create_histogram(data);
 
@@ -172,7 +185,6 @@ namespace lpz::huffman {
 			return std::unexpected(Error{ ErrorCode::InputError, "Calculating codes during compression returned: " + canonical_codes_res.error().m});
 		}
 		auto canonical_codes = *canonical_codes_res;
-
 
 		std::vector<uint8_t> coded_bytes;
 		coded_bytes.reserve(data.size() * 0.65); 
@@ -220,9 +232,11 @@ namespace lpz::huffman {
 	std::expected<std::vector<uint8_t>,Error>
 	decompress(std::span<const uint8_t> data) {
 
-		if (data.size() < 257) {
+		if (data.size() >= std::numeric_limits<uint32_t>::max())
+			return std::unexpected(Error{ ErrorCode::InputError, "Huffman decompress: Input too large" });
+		if (data.size() < 257)
 			return std::unexpected(Error{ ErrorCode::InputError, "Input too small" });
-		}
+		
 		
 		constexpr int TABLE_BITS = MAX_BITS;
 		constexpr int TABLE_SIZE = 1 << TABLE_BITS;
@@ -256,6 +270,11 @@ namespace lpz::huffman {
 		size_t out_size = 0;
 		memcpy(&out_size, data.data() + 256, 4);
 
+		if (out_size == 0)
+			return std::unexpected(Error{ ErrorCode::InputError, "Huffman decompress: Output too small" });
+		if (out_size >= std::numeric_limits<uint32_t>::max())
+			return std::unexpected(Error{ ErrorCode::InputError, "Huffman decompress: Output too large" });
+
 		std::vector<uint8_t> decoded(out_size);
 
 		uint64_t bitbuf = 0;
@@ -266,15 +285,19 @@ namespace lpz::huffman {
 		size_t out_pos = 0;
 		while (out_pos < out_size) {
 
-			if (bits_in_buf < TABLE_BITS && pos < byte_size) {
-				while (bits_in_buf <= 56 && pos < byte_size) {
-					bitbuf |= uint64_t(data[pos++]) << bits_in_buf;
-					bits_in_buf += 8;
-				}
-				
+			while (bits_in_buf < TABLE_BITS && pos < byte_size) {
+				bitbuf |= uint64_t(data[pos++]) << bits_in_buf;
+				bits_in_buf += 8;
 			}
 
 			Entry e = table[bitbuf & (TABLE_SIZE - 1)];
+
+			if (e.length == 0) [[unlikely]] {
+				return std::unexpected(Error{ ErrorCode::InputError, "Corrupted Data: Invalid Huffman Code" });
+			}
+			if (bits_in_buf < e.length) [[unlikely]] {
+				return std::unexpected(Error{ ErrorCode::InputError, "Unexpected EOF (Truncated Input)" });
+			}
 
 			decoded[out_pos++] = e.symbol;
 			bitbuf >>= e.length;
