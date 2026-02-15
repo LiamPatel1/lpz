@@ -2,24 +2,7 @@
 #include <fstream>
 #include <chrono>
 #include "huffman.h"
-
-std::vector<uint8_t> readFile(const std::string& filename) {
-    std::ifstream file(filename, std::ios::binary | std::ios::ate);
-    if (!file) {
-        throw std::runtime_error("Failed to open file: " + filename);
-    }
-
-    std::streamsize size = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    std::vector<uint8_t> buffer(size);
-    if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-        throw std::runtime_error("Failed to read file: " + filename);
-    }
-
-    return buffer;
-}
-
+#include "test-common.h"
 
 TEST(HuffmanTest, BasicTest) {
 
@@ -114,4 +97,3 @@ TEST(HuffmanTest, SingleCharStream) {
 //    std::cout << "Avg Compression Time: " << comp_avg.count() << " ms\n";
 //    std::cout << "Avg Decompression Time: " << decomp_avg.count() << " ms\n";
 //}
-//

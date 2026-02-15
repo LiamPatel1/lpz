@@ -19,10 +19,10 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(LPZ_SOURCES 
-    "cpp.hint"
     "src/lpz.h"
     "src/huffman.cpp" "src/huffman.h"
-)
+    "src/lz77.cpp" "src/lz77.h"
+  )
 
 add_library(lpz STATIC ${LPZ_SOURCES})
 
@@ -31,7 +31,9 @@ target_include_directories(lpz PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 enable_testing()
 
 add_executable( lpztest
-  "tests/test-huffman.cpp"
+    "tests/test-common.h"
+    "tests/test-huffman.cpp"
+    "tests/test-lz77.cpp" 
 )
 target_link_libraries( lpztest
   lpz
@@ -48,6 +50,9 @@ file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/tests/sample DESTINATION ${CMAKE_BINARY_DI
 if(MSVC)
     add_compile_options(/fsanitize=address /arch:AVX2)
     add_link_options(/fsanitize=address /arch:AVX2)
+endif()
 
-
+if (MSVC)
+	target_compile_options(lpztest PRIVATE /W4)
+    target_compile_options(lpz PRIVATE /W4)
 endif()
