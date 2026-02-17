@@ -168,7 +168,7 @@ namespace lpz::huffman {
 	}
 
 	std::expected<std::vector<uint8_t>, Error>
-	compress(std::span<const uint8_t> data) {
+	encode(std::span<const uint8_t> data) {
 		
 		if (data.size() >= std::numeric_limits<uint32_t>::max()) 
 			return std::unexpected(Error{ ErrorCode::InputError, "Huffman compress: Input too large" });
@@ -229,7 +229,7 @@ namespace lpz::huffman {
 	}
 
 	std::expected<std::vector<uint8_t>,Error>
-	decompress(std::span<const uint8_t> data) {
+	decode(std::span<const uint8_t> data) {
 
 		if (data.size() >= std::numeric_limits<uint32_t>::max())
 			return std::unexpected(Error{ ErrorCode::InputError, "Huffman decompress: Input too large" });
@@ -270,9 +270,9 @@ namespace lpz::huffman {
 		memcpy(&out_size, data.data() + 256, 4);
 
 		if (out_size == 0)
-			return std::unexpected(Error{ ErrorCode::InputError, "Huffman decompress: Output too small" });
+			return std::unexpected(Error{ ErrorCode::InputError, "Huffman decode: Output too small" });
 		if (out_size >= std::numeric_limits<uint32_t>::max())
-			return std::unexpected(Error{ ErrorCode::InputError, "Huffman decompress: Output too large" });
+			return std::unexpected(Error{ ErrorCode::InputError, "Huffman decode: Output too large" });
 
 		std::vector<uint8_t> decoded(out_size);
 
