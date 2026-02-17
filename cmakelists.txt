@@ -38,7 +38,7 @@ add_executable(lpz-cli "cli/main.cpp")
 target_include_directories(lpz-cli PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(lpz-cli PRIVATE lpz)
 
-add_executable(lpz-benchmark "benchmarks/benchmark-lpz.cpp")
+add_executable(lpz-benchmark "benchmarks/benchmark-lpz.cpp" "benchmarks/benchmark-zstd.cpp" "benchmarks/benchmark-main.cpp")
 target_include_directories(lpz-benchmark PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(lpz-benchmark PRIVATE lpz benchmark::benchmark zstd::libzstd)
 
