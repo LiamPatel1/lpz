@@ -4,7 +4,6 @@
 
 std::vector<uint8_t> g_input;
 
-
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::cout << "Usage: lpz-benchmark.exe <input_file>\n";

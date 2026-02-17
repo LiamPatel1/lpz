@@ -10,6 +10,8 @@ find_package(benchmark REQUIRED)
 
 # For benchmarks
 find_package(zstd CONFIG REQUIRED)
+find_package(LibLZMA REQUIRED)
+find_package(ZLIB REQUIRED)
 
 
 if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -38,9 +40,9 @@ add_executable(lpz-cli "cli/main.cpp")
 target_include_directories(lpz-cli PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(lpz-cli PRIVATE lpz)
 
-add_executable(lpz-benchmark "benchmarks/benchmark-lpz.cpp" "benchmarks/benchmark-zstd.cpp" "benchmarks/benchmark-main.cpp")
+add_executable(lpz-benchmark "benchmarks/benchmark-main.cpp" "benchmarks/benchmark-zstd.cpp" "benchmarks/benchmark-lpz.cpp" "benchmarks/benchmark-zlib.cpp" "benchmarks/benchmark-lzma.cpp")
 target_include_directories(lpz-benchmark PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(lpz-benchmark PRIVATE lpz benchmark::benchmark zstd::libzstd)
+target_link_libraries(lpz-benchmark PRIVATE lpz benchmark::benchmark zstd::libzstd LibLZMA::LibLZMA ZLIB::ZLIB)
 
 
 enable_testing()

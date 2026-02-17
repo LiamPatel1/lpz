@@ -25,7 +25,6 @@ static void BM_LPZ_Compress(benchmark::State& state) {
         int64_t(state.iterations()) * int64_t(g_input.size())
     );
 }
-BENCHMARK(BM_LPZ_Compress);
 
 
 static void BM_LPZ_Decompress(benchmark::State& state) {
@@ -42,9 +41,8 @@ static void BM_LPZ_Decompress(benchmark::State& state) {
         benchmark::DoNotOptimize(decomp);
     }
 
-    state.SetBytesProcessed(
-        int64_t(state.iterations()) * int64_t((*comp).size())
-    );
+    state.SetBytesProcessed(int64_t(state.iterations()) * int64_t(g_input.size()));
 }
-BENCHMARK(BM_LPZ_Decompress);
 
+BENCHMARK(BM_LPZ_Compress);
+BENCHMARK(BM_LPZ_Decompress);

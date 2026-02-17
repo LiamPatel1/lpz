@@ -4,9 +4,8 @@
 
 extern std::vector<uint8_t> g_input;
 
-
 static void BM_ZSTD_Compress_Fast(benchmark::State& state) {
-    int level = 1; // fast mode
+    int level = 1; 
     size_t last_size = 0;
 
     for (auto _ : state) {
@@ -30,7 +29,7 @@ static void BM_ZSTD_Compress_Fast(benchmark::State& state) {
 }
 
 static void BM_ZSTD_Compress_High(benchmark::State& state) {
-    int level = 19; // high compression
+    int level = 19; 
     size_t last_size = 0;
 
     for (auto _ : state) {
