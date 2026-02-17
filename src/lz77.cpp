@@ -7,7 +7,7 @@ namespace {
 	constexpr uint16_t MAX_DISTANCE = 65535;
 	constexpr uint32_t MAX_LENGTH = 2 * 1024;
 
-	constexpr int MAX_CHAIN = 64;
+	constexpr int MAX_CHAIN = 12;
 
 	constexpr int MIN_MATCH = 4;
 	constexpr int MATCH_LENGTH_BIAS = MIN_MATCH;
@@ -17,15 +17,23 @@ namespace {
 
 	static_assert(MIN_MATCH >= MATCH_LENGTH_BIAS);
 
+	inline uint32_t read32(const void* p) {
+		uint32_t val;
+		std::memcpy(&val, p, sizeof(uint32_t));
+		return val;
+	}
+
 	inline uint32_t hash(const uint8_t* p) {
-		uint32_t val = *(const uint32_t*)p; 
+		uint32_t val = read32(p);
 		val *= 0x1e35a7bd;                 
 		return (val >> (32 - HASH_BITS)) & ((1u << HASH_BITS) - 1);
 	}
+
+
 }
 
 std::expected<std::vector<uint8_t>, lpz::Error> 
-lpz::lz77::compress(std::span<const uint8_t> input) {
+lpz::lz77::encode(std::span<const uint8_t> input) {
 
 	if (input.size() >= std::numeric_limits<uint32_t>::max())
 		return std::unexpected(Error{ ErrorCode::InputError, "LZ77 compress: Input too large" });
@@ -64,26 +72,44 @@ lpz::lz77::compress(std::span<const uint8_t> input) {
 
 		while (prev != -1 && chain_depth < MAX_CHAIN) {
 	
+			const uint8_t* match_ptr = in_base + prev;
+
 			uint32_t length = 0;
 
-			if (ip - in_base - prev > MAX_DISTANCE) {
+			if (ip - match_ptr > MAX_DISTANCE) {
 				break;
 			}
 
+			if (ip[best_length] != match_ptr[best_length]) {
+				prev = chain[prev];
+				chain_depth++;
+				continue;
+			}
+
 			while (
-				(length != MAX_LENGTH)
-				&& (static_cast<size_t>(prev) + length < input.size())
-				&& (ip + length < in_end)
-				&& (input[static_cast<size_t>(prev) + length] == ip[length])
+				(ip + length + 4 <= in_end)
+				&& (read32(match_ptr + length) == read32(ip + length))
+				&& (length + 4 <= MAX_LENGTH)
+
+				) {
+
+				length+=4;
+			}
+			while (
+				(ip + length < in_end)
+				&& (match_ptr[length] == ip[length])
+				&& (length != MAX_LENGTH)
+
 
 				) {
 
 				length++;
 			}
 
+			
 			if (length > best_length) {
 				best_length = length;
-				best_distance = static_cast<uint16_t>(ip - in_base) - prev;
+				best_distance = static_cast<uint16_t>(ip - match_ptr);
 			}
 
 			prev = chain[prev];
@@ -165,7 +191,7 @@ lpz::lz77::compress(std::span<const uint8_t> input) {
 }
 
 std::expected<std::vector<uint8_t>, lpz::Error>
-lpz::lz77::decompress(std::span<const uint8_t> data) {
+lpz::lz77::decode(std::span<const uint8_t> data) {
 
 	if (data.size() >= std::numeric_limits<uint32_t>::max())
 		return std::unexpected(Error{ ErrorCode::InputError, "LZ77 decompress: Input too large" });
@@ -173,7 +199,7 @@ lpz::lz77::decompress(std::span<const uint8_t> data) {
 		return std::unexpected(Error{ ErrorCode::InputError, "LZ77 decompress: Empty Input" });
 
 	std::vector<uint8_t> out;
-	out.reserve(data.size() * 2);
+	out.reserve(data.size() * 3);
 
 	const uint8_t* ptr = data.data();
 	const uint8_t* end = ptr + data.size();
@@ -214,12 +240,24 @@ lpz::lz77::decompress(std::span<const uint8_t> data) {
 			} while (len_byte == 255);
 		}
 
-		size_t match_start = out.size() - match_distance;
-
+		const uint8_t* match_start = out.data() + out.size() - match_distance;
 		uint32_t match_length = biased_match_length + MATCH_LENGTH_BIAS;
+		size_t start_index = out.size() - match_distance;
 
-		for (uint32_t k = 0; k < match_length; ++k) {
-			out.push_back(out[match_start + k]);
+		if (match_distance >= match_length) {
+			const uint8_t* src = out.data() + start_index;
+			out.insert(out.end(), src, src + match_length);
+		}
+		else {
+
+			if (out.capacity() < out.size() + match_length) {
+				out.reserve(out.size() + match_length);
+			}
+
+			const uint8_t* src = out.data() + start_index;
+			for (uint32_t k = 0; k < match_length; ++k) {
+				out.push_back(src[k]);
+			}
 		}
 	}
 
