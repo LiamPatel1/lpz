@@ -7,9 +7,9 @@ namespace {
 	constexpr uint16_t MAX_DISTANCE = 65535;
 	constexpr uint32_t MAX_LENGTH = 2 * 1024;
 
-	constexpr int MAX_CHAIN = 32;
+	constexpr int MAX_CHAIN = 64;
 
-	constexpr int MIN_MATCH = 5;
+	constexpr int MIN_MATCH = 4;
 	constexpr int MATCH_LENGTH_BIAS = MIN_MATCH;
 
 	constexpr uint32_t HASH_BITS = 15;
@@ -18,7 +18,9 @@ namespace {
 	static_assert(MIN_MATCH >= MATCH_LENGTH_BIAS);
 
 	inline uint32_t hash(const uint8_t* p) {
-		return ((p[0] << 8) ^ (p[1] << 4) ^ p[2]) & ((1u << HASH_BITS) - 1);
+		uint32_t val = *(const uint32_t*)p; 
+		val *= 0x1e35a7bd;                 
+		return (val >> (32 - HASH_BITS)) & ((1u << HASH_BITS) - 1);
 	}
 }
 
@@ -35,26 +37,28 @@ lpz::lz77::compress(std::span<const uint8_t> input) {
 
 	std::vector<uint8_t> output;
 	output.reserve(input.size());
-	size_t in_pos = 0;
-	uint32_t raw_counter = 0;
 
-	while (in_pos < input.size()) {
+	const uint8_t* const in_base = input.data();
+	const uint8_t* ip = in_base;
+	const uint8_t* const in_end = in_base + input.size();
+	const uint8_t* anchor = ip;
 
-		if (in_pos + std::max(3, MIN_MATCH) >= input.size()) {
-			raw_counter++;
-			in_pos++;
+	while (ip < in_end) {
+
+		if (ip + std::max(3, MIN_MATCH) >= in_end) {
+			ip++;
 			continue;
 		}
 
 		uint32_t best_length = 0;
 		uint16_t best_distance = 0;
 
-		uint32_t next_hash = hash(&input[in_pos]);
+		uint32_t next_hash = hash(ip);
 
 		uint32_t prev = head[next_hash];
-		head[next_hash] = static_cast<uint32_t>(in_pos);
+		head[next_hash] = static_cast<uint32_t>(ip - in_base);
 
-		chain[in_pos] = prev;
+		chain[ip - in_base] = prev;
 
 		int chain_depth = 0;
 
@@ -62,15 +66,15 @@ lpz::lz77::compress(std::span<const uint8_t> input) {
 	
 			uint32_t length = 0;
 
-			if (in_pos - prev > MAX_DISTANCE) {
+			if (ip - in_base - prev > MAX_DISTANCE) {
 				break;
 			}
 
 			while (
 				(length != MAX_LENGTH)
 				&& (static_cast<size_t>(prev) + length < input.size())
-				&& (in_pos + length < input.size())
-				&& (input[static_cast<size_t>(prev) + length] == input[in_pos + length])
+				&& (ip + length < in_end)
+				&& (input[static_cast<size_t>(prev) + length] == ip[length])
 
 				) {
 
@@ -79,7 +83,7 @@ lpz::lz77::compress(std::span<const uint8_t> input) {
 
 			if (length > best_length) {
 				best_length = length;
-				best_distance = static_cast<uint16_t>(in_pos) - prev;
+				best_distance = static_cast<uint16_t>(ip - in_base) - prev;
 			}
 
 			prev = chain[prev];
@@ -87,24 +91,23 @@ lpz::lz77::compress(std::span<const uint8_t> input) {
 		}
 
 		if (best_length < MIN_MATCH) {
-			raw_counter++;
-			in_pos++;
+			ip++;
 			continue;
 		}
 
 		uint8_t token = 0;
 
-		uint32_t biased_length = best_length - MATCH_LENGTH_BIAS;
+		uint32_t biased_match_length = best_length - MATCH_LENGTH_BIAS;
+		uint32_t literal_length = ip - anchor;
 
-		token |= (raw_counter >= 15 ? 15 : raw_counter) << 4;
-		token |= (biased_length >= 15 ? 15 : biased_length);
+
+		token |= (literal_length >= 15 ? 15 : literal_length) << 4;
+		token |= (biased_match_length >= 15 ? 15 : biased_match_length);
 
 		output.push_back(token);
 
-		size_t literal_start = in_pos - raw_counter;
-
-		if (raw_counter >= 15) {
-			uint32_t extra = raw_counter - 15;
+		if (literal_length >= 15) {
+			uint32_t extra = literal_length - 15;
 			while (extra >= 255) {
 				output.push_back(255);
 				extra -= 255;
@@ -112,13 +115,12 @@ lpz::lz77::compress(std::span<const uint8_t> input) {
 			output.push_back(static_cast<uint8_t>(extra));
 		}
 
-		output.insert(output.end(), input.data() + literal_start, input.data() + in_pos);
-		raw_counter = 0;
+		output.insert(output.end(), anchor, ip);
 		
 		output.insert(output.end(), reinterpret_cast<uint8_t*>(&best_distance), reinterpret_cast<uint8_t*>(&best_distance) + sizeof(best_distance));
 
-		if (biased_length >= 15) {
-			uint32_t extra_length = biased_length - 15;
+		if (biased_match_length >= 15) {
+			uint32_t extra_length = biased_match_length - 15;
 			while (extra_length >= 255) {
 				output.push_back(255);
 				extra_length -= 255;
@@ -127,24 +129,28 @@ lpz::lz77::compress(std::span<const uint8_t> input) {
 		}
 
 		for (uint32_t k = 1; k < best_length; k++) {
-			if (in_pos + k + 3 >= input.size()) break;
+			if (ip + k + 3 >= in_end) break;
 
-			uint32_t h = hash(&input[in_pos + k]);
-			chain[in_pos + k] = head[h];
-			head[h] = static_cast<uint32_t>(in_pos) + k;
+			uint32_t h = hash(ip+k);
+			chain[ip - in_base + k] = head[h];
+			head[h] = ip - in_base + k;
 		}
 
-		in_pos += best_length;
+		ip += best_length;
+		anchor = ip;
 	}
 
-	size_t literal_start = in_pos - raw_counter;  
+	uint32_t literal_length = ip - anchor;
+
 
 	uint8_t token = 0;
-	token |= (raw_counter >= 15 ? 15 : raw_counter) << 4;
+	token |= (literal_length >= 15 ? 15 : literal_length) << 4;
 	output.push_back(token);
 
-	if (raw_counter >= 15) {
-		uint32_t extra = raw_counter - 15;
+
+	if (literal_length >= 15) {
+
+		uint32_t extra = literal_length - 15;
 		while (extra >= 255) {
 			output.push_back(255);
 			extra -= 255;
@@ -152,7 +158,7 @@ lpz::lz77::compress(std::span<const uint8_t> input) {
 		output.push_back(static_cast<uint8_t>(extra));
 	}
 
-	output.insert(output.end(), input.data() + literal_start, input.data() + in_pos);
+	output.insert(output.end(), anchor, ip);
 
 	return output;
 
