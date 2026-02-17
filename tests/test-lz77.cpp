@@ -2,9 +2,10 @@
 #include <fstream>
 #include <chrono>
 #include "lz77.h"
-#include "huffman.h"
-
 #include "test-common.h"
+
+#pragma warning(disable : 6326)
+
 
 TEST(LZ77Test, BasicTest) {
 
@@ -25,7 +26,7 @@ TEST(LZ77Test, ProfileTest) {
 
     using clock = std::chrono::steady_clock;
 
-    auto input = readFile("tests/sample/enwik5");
+    auto input = readFile("tests/sample/enwik6");
 
     constexpr int runs = 5;
     std::chrono::nanoseconds comp_total{ 0 };

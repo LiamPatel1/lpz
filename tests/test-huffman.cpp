@@ -4,6 +4,8 @@
 #include "huffman.h"
 #include "test-common.h"
 
+#pragma warning(disable : 6326)
+
 TEST(HuffmanTest, BasicTest) {
 
     auto input = readFile("tests/sample/enwik7");

@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <expected>
 #include <format>
-
 namespace {
 
 	constexpr int MAX_BITS = 14;
@@ -47,7 +46,7 @@ namespace {
 		uint32_t code = 0;
 
 		for (int len = 1; len <= MAX_BITS; len++) {
-			code = (code + codes_for_length[len - 1]) << 1;
+			code = (code + codes_for_length[static_cast<size_t>(len) - 1]) << 1;
 			next_code[len] = code;
 		}
 
@@ -100,7 +99,7 @@ namespace {
 
 		std::array<uint8_t, 256> lengths = {};
 
-		int n = leaves.size();
+		int n = static_cast<int>(leaves.size());
 
 		std::vector<std::vector<Package>> levels(MAX_BITS);
 		levels[0] = leaves;
@@ -114,16 +113,16 @@ namespace {
 			}
 
 			// Merge new packages with the leaves
-			levels[i + 1].resize(leaves.size() + new_packages.size());
+			levels[static_cast<size_t>(i) + 1].resize(leaves.size() + new_packages.size());
 			std::merge(
 				leaves.begin(), leaves.end(),
 				new_packages.begin(), new_packages.end(),
-				levels[i + 1].begin(),
+				levels[static_cast<size_t>(i) + 1].begin(),
 				sort_packages
 			);
 		}
 
-		size_t items_needed = 2 * n - 2;
+		size_t items_needed = 2ull * n - 2;
 
 		for (int i = MAX_BITS - 1; i >= 0; --i) {
 			size_t next_items_needed = 0;
@@ -158,13 +157,13 @@ namespace lpz::huffman {
 		size_t bits = 0;
 
 		for (int i = 0; i < 256; i++) {
-			bits += lengths[i] * histogram[i];
+			bits += static_cast<size_t>(lengths[i]) * histogram[i];
 		}
 
-		bits += 8 * (256+4); // code lengths + output stream size
+		bits += static_cast<size_t>(8 * (256+4)); // code lengths + output stream size
 		bits += 7;
 
-		return (double)(bits/8) / data.size();
+		return static_cast<double>(bits/8) / data.size();
 
 	}
 
@@ -184,12 +183,12 @@ namespace lpz::huffman {
 		if (!canonical_codes_res) {
 			return std::unexpected(Error{ ErrorCode::InputError, "Calculating codes during compression returned: " + canonical_codes_res.error().m});
 		}
-		auto canonical_codes = *canonical_codes_res;
+		std::array<uint32_t, 256> canonical_codes = *canonical_codes_res;
 
 		std::vector<uint8_t> coded_bytes;
-		coded_bytes.reserve(data.size() * 0.65); 
+		coded_bytes.reserve(data.size()); 
 
-		uint32_t uncompsize = data.size();
+		uint32_t uncompsize = static_cast<uint32_t>(data.size());
 		const uint8_t* size_ptr = reinterpret_cast<const uint8_t*>(&uncompsize);
 		coded_bytes.insert(coded_bytes.end(), lengths.cbegin(), lengths.cend());
 		coded_bytes.insert(coded_bytes.end(), size_ptr, size_ptr + sizeof(uint32_t));
@@ -250,7 +249,7 @@ namespace lpz::huffman {
 		if (!canonical_codes_res) {
 			return std::unexpected(Error{ ErrorCode::InputError, "Calculating codes during decompression returned: " + canonical_codes_res.error().m });
 		}
-		auto canonical_codes = *canonical_codes_res;
+		std::array<uint32_t,256> canonical_codes = *canonical_codes_res;
 
 		std::vector<Entry> table(TABLE_SIZE);
 		for (auto& e : table) e.length = 0;
@@ -279,7 +278,7 @@ namespace lpz::huffman {
 
 		uint64_t bitbuf = 0;
 		int bits_in_buf = 0;
-		size_t pos = 256+4;
+		size_t pos = 256ull + 4;
 		size_t byte_size = data.size();
 
 		size_t out_pos = 0;
@@ -290,7 +289,7 @@ namespace lpz::huffman {
 				bits_in_buf += 8;
 			}
 
-			Entry e = table[bitbuf & (TABLE_SIZE - 1)];
+			Entry e = table[bitbuf & (static_cast<size_t>(TABLE_SIZE) - 1)];
 
 			if (e.length == 0) [[unlikely]] {
 				return std::unexpected(Error{ ErrorCode::InputError, "Corrupted Data: Invalid Huffman Code" });

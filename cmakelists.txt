@@ -32,14 +32,17 @@ enable_testing()
 
 add_executable( lpztest
     "tests/test-common.h"
-    "tests/test-huffman.cpp"
     "tests/test-lz77.cpp" 
+    "tests/test-huffman.cpp"
+
 )
 target_link_libraries( lpztest
-  lpz
-  GTest::gtest_main
+    PRIVATE
+    lpz
+    GTest::gtest_main
 )
 
+target_include_directories(lpztest SYSTEM PRIVATE ${GTest_INCLUDE_DIRS})
 target_include_directories(lpztest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 include(GoogleTest)
@@ -47,12 +50,18 @@ gtest_discover_tests(lpztest)
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/tests/sample DESTINATION ${CMAKE_BINARY_DIR}/tests)
 
-if(MSVC)
-    add_compile_options(/fsanitize=address /arch:AVX2)
-    add_link_options(/fsanitize=address /arch:AVX2)
-endif()
-
 if (MSVC)
-	target_compile_options(lpztest PRIVATE /W4)
-    target_compile_options(lpz PRIVATE /W4)
+    add_compile_options(
+        /W4 /WX 
+        /permissive- 
+        /analyze 
+        /analyze:external- 
+        /fsanitize=address 
+        /external:W0 
+        /external:anglebrackets
+        /arch:AVX2
+    )
+    
+    add_link_options(/fsanitize=address)
+    
 endif()
