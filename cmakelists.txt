@@ -6,6 +6,11 @@ set(VCPKG_TARGET_TRIPLET "x64-windows")
 project ("lpz")
 
 find_package(GTest CONFIG REQUIRED)
+find_package(benchmark REQUIRED)
+
+# For benchmarks
+find_package(zstd CONFIG REQUIRED)
+
 
 if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
     include(CheckIPOSupported)
@@ -19,34 +24,44 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(LPZ_SOURCES 
-    "src/lpz.h"
+    "src/lpz.h" "src/lpz.cpp"
     "src/huffman.cpp" "src/huffman.h"
     "src/lz77.cpp" "src/lz77.h"
-  )
+    "src/block.h" "src/block.cpp"
+)
 
 add_library(lpz STATIC ${LPZ_SOURCES})
 
 target_include_directories(lpz PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-enable_testing()
+add_executable(lpz-cli "cli/main.cpp")
+target_include_directories(lpz-cli PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(lpz-cli PRIVATE lpz)
 
-add_executable( lpztest
+add_executable(lpz-benchmark "benchmarks/benchmark-lpz.cpp")
+target_include_directories(lpz-benchmark PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(lpz-benchmark PRIVATE lpz benchmark::benchmark zstd::libzstd)
+
+
+enable_testing()
+add_executable( "lpz-test"
     "tests/test-common.h"
     "tests/test-lz77.cpp" 
     "tests/test-huffman.cpp"
-
+    "tests/test-block.cpp"
+    "tests/test-lpz.cpp" 
 )
-target_link_libraries( lpztest
+target_link_libraries( "lpz-test"
     PRIVATE
     lpz
     GTest::gtest_main
 )
 
-target_include_directories(lpztest SYSTEM PRIVATE ${GTest_INCLUDE_DIRS})
-target_include_directories(lpztest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories("lpz-test" SYSTEM PRIVATE ${GTest_INCLUDE_DIRS})
+target_include_directories("lpz-test" PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 include(GoogleTest)
-gtest_discover_tests(lpztest)
+gtest_discover_tests("lpz-test")
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/tests/sample DESTINATION ${CMAKE_BINARY_DIR}/tests)
 
